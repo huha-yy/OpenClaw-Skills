@@ -1,3 +1,13 @@
+# 工作区身份文件
+AGENTS.md
+CLAUDE.md
+BOOTSTRAP.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
+
 # 运行时状态
 .openclaw/
 

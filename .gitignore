@@ -1,0 +1,19 @@
+# 运行时状态
+.openclaw/
+
+# 内容产物（含品牌生成内容）
+outputs/
+
+# 日志
+logs/
+
+# 模板副本
+default/
+
+# AI 记忆
+memory/
+
+# 系统临时文件
+Thumbs.db
+.DS_Store
+*.tmp

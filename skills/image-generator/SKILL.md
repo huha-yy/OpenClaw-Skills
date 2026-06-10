@@ -1,113 +1,115 @@
 ---
 name: image-generator
-description: 图片生成：从内容输出分析图片需求，生成图文协同方案。P0 图库检索（Pexels API 自动搜索下载）+ P2 AI生图（ComfyUI API 本地生成），两大策略均已落地。
-version: "2.0"
+description: 图片生成（LLM层）：从内容输出分析图片需求，生成图文协同方案。方案写入 plan.json 后，由外部脚本 run_image_pipeline.py 自动执行 Pexels搜索 + ComfyUI生图，不占用LLM上下文。
+version: "3.0"
 platforms: [wechat, xiaohongshu, douyin]
-tools_required: [pexels_api, comfyui_api]
 ---
 
-# 图片生成技能
+# 图片生成技能（LLM 层）
 
-你是一个 AI 图片生成策划师。你的任务是从已有的内容输出中分析图片需求，生成完整的图文协同方案、图库检索关键词和 Stable Diffusion 生图 Prompt。
+你是图片策划师。你只负责**分析和出方案**，不负责调 API 或下载图片。那些体力活交给脚本。
 
 ---
 
-## 核心原则
+## 你的职责（LLM 层）
 
 ```
-1. 图文协同优先 —— 先想清楚每张图在内容中的作用，再写 prompt
-2. 平台尺寸适配 —— 不同平台封面和配图尺寸不同
-3. 品牌一致 —— 符合公司品牌调性和风格指南
-4. 版权可控 —— 优先 Pexels 图库，AI 生图作为兜底
-5. 风险边界 —— 不用 AI 生成真实新闻现场图、不冒充真实人物
+读平台内容 → 分析需要哪些图 → 生成 image_plan.json → 告诉用户执行脚本
 ```
 
----
-
-## 输入
-
-从 content-strategy 和对应平台内容中读取：
-- 内容主题、角度、正文
-- 目标平台（小红书/抖音/公众号）
-- 品牌调性要求
+**你的输出只有一件事：一个 `image_plan.json` 文件。**
 
 ---
 
-## 输出（必须全部覆盖）
+## 如何生成 image_plan.json
 
-### 1. 图文协同方案（核心输出）
+### 第 1 步：读内容
 
-对每张需要的图片，输出：
+读取对应平台的内容文件和品牌指南：
+- 内容文件：`configs/platform_style_guides/<平台>.md`
+- 品牌调性：`configs/brand_guidelines.md`
+
+### 第 2 步：分析需求
+
+根据内容章节和平台特征，列出所有需要的图片：
+
+| 内容结构 | 图片类型 |
+|---|---|
+| 标题/封面 | 封面图 |
+| 每个小节 | 1 张配图（观点图/场景图/数据图底图） |
+| 结尾总结 | 品牌调性收尾图 |
+
+### 第 3 步：对每张图填写以下字段
 
 ```json
 {
   "image_id": 1,
-  "purpose": "封面图 / 观点图 / 步骤图 / 对比图 / 总结图 / 正文配图",
-  "position": "对应正文第X段",
-  "platform": "xiaohongshu",
-  "size": {
-    "width": 1080,
-    "height": 1440
-  },
-  "text_on_image": "图上要放的大字标题",
-  "visual_description": "画面的中文描述",
-  "tone": "专业温暖 / 科技感 / 生活化",
-  "pexels_keywords": ["modern hospital room", "elderly care technology"],
-  "sd_prompt": {
-    "positive": "masterpiece, best quality...",
-    "negative": "ugly, blurry, low quality...",
-    "steps": 25,
-    "cfg": 7.0,
-    "sampler": "DPM++ 2M Karras",
-    "seed": -1
-  },
-  "risk_warning": "如有风险则说明"
+  "purpose": "封面图",
+  "position": "文章标题配图",
+  "platform": "wechat",
+  "size": {"width": 900, "height": 383},
+  "text_on_image": "免陪照护：从政策到产业",
+  "visual_description": "中文画面描述",
+  "tone": "专业温暖",
+  "pexels_query": "elderly care professional clean modern",
+  "pexels_orientation": "landscape",
+  "sd_positive": "masterpiece, best quality, photorealistic...",
+  "sd_negative": "ugly, blurry, low quality, distorted...",
+  "sd_steps": 25,
+  "sd_cfg": 7.0,
+  "risk_warning": "无"
 }
 ```
 
-### 2. 图库检索关键词（给 Pexels 用）
+### image_plan.json 完整结构
 
-按图片用途分类列出中英文关键词。
-
-### 3. SD 生图 Prompt（给 ComfyUI 用）
-
-每张图输出完整的正/负面提示词和参数。
-
----
-
-## 图片生产双策略工作流
-
+```json
+{
+  "topic": "免陪照护服务",
+  "platform": "wechat",
+  "min_score_threshold": 60,
+  "images": [
+    {
+      "image_id": 1,
+      "purpose": "封面图",
+      "position": "文章头部",
+      "platform": "wechat",
+      "size": {"width": 900, "height": 383},
+      "text_on_image": "免陪照护：从政策趋势到产业机遇",
+      "visual_description": "现代简约的康养场景，柔光，智能设备剪影",
+      "tone": "专业温暖",
+      "pexels_query": "elderly care professional medical modern bright",
+      "pexels_orientation": "landscape",
+      "sd_positive": "masterpiece, best quality, photorealistic, bright modern senior care room...",
+      "sd_negative": "ugly, blurry, low quality, distorted, watermark, text, dark, scary, hospital...",
+      "sd_steps": 25,
+      "sd_cfg": 7.0,
+      "risk_warning": "无"
+    }
+  ]
+}
 ```
-内容策略 + 平台内容
-        ↓
-  图文协同方案（每张图的用途、尺寸、视觉描述）
-        ↓
-  ┌──────────────────────────────────────────────┐
-  │  策略一：Pexels 图库检索（P0，优先）          │
-  │  python scripts/pexels_search.py             │
-  │  --query "关键词" --platform wechat --n 10    │
-  │  → 自动搜索 → 评分 → 候选图列表               │
-  └──────────────────────────────────────────────┘
-        ↓ 评分 < 60 分，无合适图
-  ┌──────────────────────────────────────────────┐
-  │  策略二：ComfyUI AI 生图（P2，兜底）          │
-  │  python scripts/comfyui_client.py            │
-  │  --positive "prompt" --width 768 --height 512 │
-  │  → 本地 SD 生图 → 下载图片                    │
-  └──────────────────────────────────────────────┘
-        ↓
-  候选图 → 人工审核 → 写入发布包
+
+### 第 4 步：写入文件并提示用户
+
+将 `image_plan.json` 写入 `outputs/<topic>/images/` 目录。然后告诉用户执行：
+
+```bash
+python skills/image-generator/scripts/run_image_pipeline.py \
+  --plan outputs/<topic>/images/image_plan.json
 ```
+
+> **你不需要执行这条命令。** 执行层脚本会自动完成 Pexels 搜索 → 评分 → ComfyUI 兜底 → 下载图片的全流程。
 
 ---
 
 ## 平台图片规格速查
 
-| 平台 | 用途 | 尺寸 |
-|---|---|---|
-| 小红书 | 封面/图文卡片 | 1080×1440 (3:4) |
-| 抖音 | 竖屏封面 | 1080×1920 (9:16) |
-| 公众号 | 头图封面 | 900×383 (2.35:1) |
+| 平台 | 用途 | 尺寸 | Pexels orientation |
+|---|---|---|---|
+| 小红书 | 封面/图文卡片 | 1080×1440 | portrait |
+| 抖音 | 竖屏封面 | 1080×1920 | portrait |
+| 公众号 | 头图封面 | 900×383 | landscape |
 
 ---
 
@@ -117,127 +119,25 @@ tools_required: [pexels_api, comfyui_api]
 
 ```
 画质前缀（masterpiece, best quality, photorealistic）
-+ 主场景描述（画面是什么内容）
-+ 氛围/光线（warm sunlight, soft lighting, cinematic）
-+ 色调/风格（blue and white palette, minimalist, clean）
++ 主场景描述（具体物体的英文描述）
++ 氛围/光线（warm sunlight, soft natural daylight, cinematic lighting）
++ 色调/风格（blue and white palette, minimalist, clean, professional）
 + 画质后缀（shallow depth of field, 8k）
 ```
 
 ### 负面提示词模板
 
 ```
-ugly, blurry, low quality, distorted, bad anatomy, deformed,
-watermark, text, signature, messy, cluttered,
-people, face, person, patient, sad, depressing
+ugly, blurry, low quality, distorted, deformed, watermark, text, signature,
+messy, dirty, dark, scary, crowded, cluttered,
+lamp, light fixture, cables, wires, cheap plastic, cartoon, 3d render
 ```
-
----
-
-## 策略一：Pexels 图库检索（P0）
-
-### 搜索图片
-
-```bash
-python skills/image-generator/scripts/pexels_search.py \
-  --query "elderly care technology modern clean" \
-  --n 10 \
-  --platform wechat \
-  --orientation landscape \
-  --color blue \
-  --min-score 60 \
-  --output outputs/topic/images/pexels_candidates.json
-```
-
-### 参数说明
-
-| 参数 | 说明 |
-|---|---|
-| `--query` | 英文搜索词（Pexels 不支持中文搜索） |
-| `--n` | 返回数量，默认 10 |
-| `--platform` | 平台，影响评分中的比例适配 |
-| `--orientation` | landscape / portrait / square |
-| `--color` | 主色调过滤（如 blue, white, green） |
-| `--min-score` | 最低分数阈值，低于此不推荐 |
-| `--output` | 输出 JSON 文件路径 |
-
-### 评分维度
-
-| 维度 | 权重 | 说明 |
-|---|---|---|
-| 关键词匹配 | 30 | 图片描述是否命中品牌关键词 |
-| 平台比例适配 | 20 | 比例越接近目标平台越高分 |
-| 来源可追溯 | 10 | 摄影师信息完整度 |
-| 美观度基准 | 20 | Pexels 高质量图库底分 |
-| 色彩丰富度 | 10 | 图片色彩信息 |
-
----
-
-## 策略二：ComfyUI AI 生图（P2）
-
-当 Pexels 候选图分数 < 阈值（默认 60）时，自动降级到 ComfyUI 生图。
-
-```bash
-python skills/image-generator/scripts/comfyui_client.py \
-  --positive "masterpiece, best quality, photorealistic..." \
-  --negative "ugly, blurry, low quality..." \
-  --width 768 --height 512 --steps 25 --cfg 7.0 \
-  --checkpoint "v1-5-pruned-emaonly.safetensors" \
-  --output outputs/topic/images/
-```
-
-### 前置条件
-
-- ComfyUI 必须在本地运行：`http://127.0.0.1:8188`
-- SD 模型已下载到 `D:\ComfyUI\models\checkpoints\`
 
 ---
 
 ## 风险边界
 
-### 明确禁止生成
-
-```text
-❌ 真实新闻现场图
-❌ 真实人物肖像（冒充事实）
-❌ 公司产品实物图（不准确）
-❌ 竞品 Logo 或产品图
-❌ 政策文件、政府公文截图
-❌ 高风险事实性图片
 ```
-
-### 适合生成
-
-```text
-✅ 抽象概念图（行业趋势、科技感）
-✅ 风格化封面（公众号封面、抖音封面）
-✅ 信息图背景（数据图、对比图的底图）
-✅ 场景化插画（护理场景示意）
-✅ 社媒卡片底图
-```
-
----
-
-## 输出文件
-
-```text
-outputs/<topic>/images/
-  ├── image_plan.json          ← 图文协同方案（所有图需求）
-  ├── pexels_candidates.json   ← Pexels 候选图列表（带评分）
-  ├── sd_prompts.json          ← SD 生图 prompt 清单
-  └── *.png                    ← 实际生成的图片文件
-```
-
----
-
-## 质量检查清单
-
-生成完毕后自检：
-
-```text
-□ 每张图是否标注了用途和对应段落？
-□ 尺寸是否符合目标平台要求？
-□ Prompt 是否为英文（SD 不支持中文）？
-□ 是否包含了负面 prompt？
-□ 是否标注了风险项？
-□ 输出文件是否写入了正确的目录？
+禁止生成: 真实新闻现场图 | 真实人物肖像 | 产品实物图 | 竞品Logo | 政策文件截图
+适合生成: 抽象概念图 | 风格化封面 | 信息图背景 | 场景插画 | 卡片底图
 ```

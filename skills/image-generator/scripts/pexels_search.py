@@ -19,6 +19,11 @@ import argparse
 import urllib.request
 import urllib.parse
 
+# Windows 终端默认 GBK 编码，处理不了某些 Unicode 字符，强制 UTF-8
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 PEXELS_URL = "https://api.pexels.com/v1/search"
 
@@ -70,7 +75,7 @@ def score_image(photo, purpose, platform, brand_keywords):
     if photo.get("avg_color"):
         score += 10
 
-    # 平台适配（20分）
+    # 平台适配（20分）— 宽松匹配，允许裁剪
     width = photo.get("width", 0)
     height = photo.get("height", 0)
     aspect_ratios = {
@@ -80,10 +85,19 @@ def score_image(photo, purpose, platform, brand_keywords):
     }
     target_ratio = aspect_ratios.get(platform, 1)
     actual_ratio = width / max(height, 1)
-    ratio_diff = abs(actual_ratio - target_ratio)
-    platform_score = max(0, 20 - int(ratio_diff * 20))
+
+    # 方向是否匹配（横版对横版，竖版对竖版）
+    target_landscape = target_ratio > 1
+    actual_landscape = actual_ratio > 1
+    if target_landscape == actual_landscape:
+        platform_score = 15  # 方向匹配，给基础分
+        ratio_diff = abs(actual_ratio - target_ratio)
+        platform_score += max(0, 5 - int(ratio_diff * 5))
+    else:
+        platform_score = max(0, 10 - int(abs(actual_ratio - target_ratio) * 10))
+
     score += platform_score
-    reasons.append(f"平台适配: {platform_score}/20")
+    reasons.append(f"平台适配: {platform_score}/20（目标{target_ratio:.2f} 实际{actual_ratio:.2f}）")
 
     # 美观度基准（20分）
     score += 15

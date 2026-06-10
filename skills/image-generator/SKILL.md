@@ -125,19 +125,22 @@ python skills/image-generator/scripts/run_image_pipeline.py \
 + 画质后缀（shallow depth of field, 8k）
 ```
 
-### 负面提示词模板
+### 负面提示词模板（必须包含人物屏蔽词）
 
 ```
 ugly, blurry, low quality, distorted, deformed, watermark, text, signature,
 messy, dirty, dark, scary, crowded, cluttered,
-lamp, light fixture, cables, wires, cheap plastic, cartoon, 3d render
+lamp, light fixture, cables, wires, cheap plastic, cartoon, 3d render,
+person, people, face, hand, finger, patient, human, nurse, doctor, man, woman, child
 ```
+
+> **强制规则：每次生成 prompt 时，负面词必须包含上述人物屏蔽词。SD 容易把人画崩（畸形手、扭曲脸），直接整体禁止生成人物。**
 
 ---
 
 ## 风险边界
 
 ```
-禁止生成: 真实新闻现场图 | 真实人物肖像 | 产品实物图 | 竞品Logo | 政策文件截图
-适合生成: 抽象概念图 | 风格化封面 | 信息图背景 | 场景插画 | 卡片底图
+禁止生成: 人物/人像/手 | 真实新闻现场图 | 真实人物肖像 | 产品实物图 | 竞品Logo | 政策文件截图
+适合生成: 空场景 | 抽象概念图 | 风格化封面 | 信息图背景 | 场景插画 | 卡片底图 | 设备/产品空镜
 ```

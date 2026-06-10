@@ -118,7 +118,7 @@ def get_image(filename, subfolder, output_type):
 def main():
     parser = argparse.ArgumentParser(description="ComfyUI 文生图客户端")
     parser.add_argument("--positive", required=True, help="正面提示词（英文）")
-    parser.add_argument("--negative", default="ugly, blurry, low quality, distorted, watermark, text, signature", help="负面提示词")
+    parser.add_argument("--negative", default="ugly, blurry, low quality, distorted, deformed, watermark, text, signature, person, people, face, hand, finger, patient, human, nurse, doctor, man, woman, child, messy, dark, scary, cartoon, 3d render", help="负面提示词")
     parser.add_argument("--width", type=int, default=768, help="图片宽度")
     parser.add_argument("--height", type=int, default=512, help="图片高度")
     parser.add_argument("--steps", type=int, default=25, help="采样步数")

@@ -23,6 +23,9 @@ default/
 # AI 记忆
 memory/
 
+# Python
+__pycache__/
+
 # 系统临时文件
 Thumbs.db
 .DS_Store

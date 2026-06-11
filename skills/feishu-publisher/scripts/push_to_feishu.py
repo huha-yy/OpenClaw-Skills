@@ -168,10 +168,14 @@ def add_blocks(doc_id, parent_block_id, blocks, auth):
 
 def _resolve_image_path(file_path, package_dir):
     """解析图片文件路径，返回存在的绝对路径或 None。"""
+    # 截掉 pipeline_result.json 里的 "(N bytes)" 后缀
+    m = _IMAGE_FILE_RE.match(file_path.strip())
+    clean_path = m.group(1).strip() if m else file_path.strip()
+
     candidate_paths = [
-        os.path.normpath(os.path.join(package_dir, file_path)),
-        os.path.normpath(os.path.join(package_dir, "..", "images", os.path.basename(file_path))),
-        os.path.normpath(file_path),
+        os.path.normpath(os.path.join(package_dir, clean_path)),
+        os.path.normpath(os.path.join(package_dir, "..", "images", os.path.basename(clean_path))),
+        os.path.normpath(clean_path),
     ]
     for p in candidate_paths:
         if os.path.isfile(p):

@@ -19,6 +19,12 @@ import urllib.request
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# 强制人物屏蔽词 —— 小模型容易画出畸形手/脸，代码层兜底确保不被 LLM 遗漏
+MANDATORY_NEGATIVE = (
+    "person, people, face, hand, finger, human, man, woman, child, "
+    "patient, nurse, doctor, portrait, crowd, family"
+)
+
 
 def run_pexels(query, platform, orientation, n, min_score, output_dir):
     """调用 pexels_search.py"""
@@ -73,11 +79,16 @@ def download_pexels_image(photo, output_dir, filename):
 
 def run_comfyui(positive, negative, width, height, steps, cfg, output_dir):
     """调用 comfyui_client.py"""
+    # 强制合入人物屏蔽词（小模型可能遗漏，代码层兜底）
+    llm_neg_words = set(w.strip() for w in negative.split(",") if w.strip())
+    mandatory_words = set(w.strip() for w in MANDATORY_NEGATIVE.split(",") if w.strip())
+    merged_negative = ", ".join(sorted(llm_neg_words | mandatory_words))
+
     cmd = [
         sys.executable,
         os.path.join(SCRIPTS_DIR, "comfyui_client.py"),
         "--positive", positive,
-        "--negative", negative,
+        "--negative", merged_negative,
         "--width", str(width),
         "--height", str(height),
         "--steps", str(steps),
@@ -110,7 +121,7 @@ def main():
 
     topic = plan.get("topic", "unknown")
     platform = plan.get("platform", "wechat")
-    threshold = plan.get("min_score_threshold", 60)
+    threshold = plan.get("min_score_threshold", 50)
     images = plan.get("images", [])
 
     output_dir = os.path.dirname(args.plan) or "."

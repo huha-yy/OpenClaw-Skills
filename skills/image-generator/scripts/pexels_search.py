@@ -59,12 +59,17 @@ def score_image(photo, purpose, platform, brand_keywords):
     score = 0
     reasons = []
 
-    # 关键词匹配（30分）
-    combined = f"{photo.get('alt', '')} {photo.get('photographer', '')}".lower()
+    # 关键词匹配（30分）—— alt 文本 + 摄影者名 + 原始搜索词
+    # Pexels locale=zh-CN 返回中文 alt，因此必须中英双语匹配
+    alt_text = photo.get('alt', '')
+    photographer_name = photo.get('photographer', '')
+    combined = f"{alt_text} {photographer_name}".lower()
     matched = [kw for kw in brand_keywords if kw.lower() in combined]
     score += min(30, len(matched) * 15)
     if matched:
-        reasons.append(f"品牌关键词匹配: {matched}")
+        reasons.append(f"内容关键词匹配({len(matched)}个): {matched}")
+    else:
+        reasons.append(f"内容关键词未匹配（alt={alt_text[:40]!r}...）")
 
     # 摄影师知名度（简化：有头像+10分）
     if photo.get("photographer_url"):
@@ -74,6 +79,7 @@ def score_image(photo, purpose, platform, brand_keywords):
     # 色彩丰富度（简化：avg_color 存在+10分）
     if photo.get("avg_color"):
         score += 10
+        reasons.append(f"色彩信息完整 ({photo.get('avg_color')})")
 
     # 平台适配（20分）— 宽松匹配，允许裁剪
     width = photo.get("width", 0)
@@ -99,9 +105,9 @@ def score_image(photo, purpose, platform, brand_keywords):
     score += platform_score
     reasons.append(f"平台适配: {platform_score}/20（目标{target_ratio:.2f} 实际{actual_ratio:.2f}）")
 
-    # 美观度基准（20分）
+    # 美观度基准（15分）—— Pexels 图库本身的质量保证
     score += 15
-    reasons.append("Pexels 高质量图库")
+    reasons.append("Pexels 高质量图库基准")
 
     risk = "low"
     if platform_score < 10:
@@ -123,10 +129,10 @@ def main():
     parser.add_argument("--color", help="主色调（如 blue, white）")
     parser.add_argument("--purpose", default="配图", help="图片用途")
     parser.add_argument("--platform", default="xiaohongshu", choices=["xiaohongshu", "douyin", "wechat"])
-    parser.add_argument("--brand-keywords", default="medical,healthcare,elderly,care,technology,clean,modern,professional", help="品牌关键词，逗号分隔")
+    parser.add_argument("--brand-keywords", default="医疗,健康,养老,护理,科技,清洁,现代,专业,医院,老人,智能,机器人,medical,healthcare,elderly,care,technology,clean,modern,professional", help="品牌关键词（中英双语），逗号分隔")
     parser.add_argument("--apikey", help="Pexels API Key（优先用环境变量 PEXELS_API_KEY）")
     parser.add_argument("--output", help="输出 JSON 文件路径")
-    parser.add_argument("--min-score", type=int, default=60, help="最低分数阈值")
+    parser.add_argument("--min-score", type=int, default=50, help="最低分数阈值（无品牌匹配时上限55分，50确保优质图库图可通过）")
     args = parser.parse_args()
 
     api_key = args.apikey or os.environ.get("PEXELS_API_KEY")

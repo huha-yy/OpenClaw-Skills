@@ -7,13 +7,13 @@ user-invocable: true
 
 # Compliance Check
 
-Risk review covering three dimensions: facts, brand, and platform compliance. The output determines whether content can proceed to packaging.
+Risk review covering four dimensions: facts, brand, platform compliance, and AI trace detection. The output determines whether content can proceed to packaging.
 
 ## Workflow
 
 1. Load brand guidelines from `configs/brand_guidelines.md`.
 2. Review all three platform content packages + research sources.
-3. Check each of the three dimensions independently.
+3. Check each of the four dimensions independently.
 4. Assign an overall risk level and determine if human review is required.
 5. For every flagged item, provide a specific reason and suggested fix.
 
@@ -68,6 +68,20 @@ Risk review covering three dimensions: facts, brand, and platform compliance. Th
         }
       ],
       "passed": false
+    },
+    "ai_trace_check": {
+      "risk": "low",
+      "score": 42,
+      "issues": [
+        {
+          "platform": "wechat",
+          "location": "body",
+          "issue": "命中AI高频词'值得注意的是'1次",
+          "severity": "low",
+          "suggestion": "删除或替换为直接陈述"
+        }
+      ],
+      "passed": true
     }
   },
   "requires_human_review": true,
@@ -75,7 +89,7 @@ Risk review covering three dimensions: facts, brand, and platform compliance. Th
 }
 ```
 
-## Three dimensions
+## Four dimensions
 
 ### 1. Fact Check (事实审核)
 - Are sources reliable and authoritative?
@@ -96,6 +110,29 @@ Risk review covering three dimensions: facts, brand, and platform compliance. Th
 - Sensitive industry claims: finance, medical, legal areas have extra restrictions.
 - Platform-specific rules: XHS, Douyin, WeChat each have unique policy constraints.
 - Does content risk being flagged as misinformation?
+- 小红书强制标签检查：确认包含 `#AI生成内容`。
+
+### 4. AI痕迹检查（内容质量）
+
+对每篇平台内容进行AI痕迹评分，总分50，< 35标记为"需人工润色"，< 25触发整体风险升级一级。
+
+| 维度 | 满分 | 扣分规则 |
+|------|------|----------|
+| 直接性 | 10 | 绕圈子铺垫扣3-5分 |
+| 节奏 | 10 | 连续3句同长度扣3分，模板化排比扣5分 |
+| 信任度 | 10 | "值得注意的是"等填充词每处扣2分（上限10分） |
+| 真实性 | 10 | "不仅……而且……"扣3分，系动词回避结构扣2分/处 |
+| 精炼度 | 10 | 冗余修饰每处扣2分，"的"超限扣分 |
+
+### AI高频词命中清单
+
+以下词汇每命中一个即标记，不直接扣分但计入审核建议：
+```
+此外 至关重要 深入探讨 值得注意的是 值得一提的是
+不可忽视的是 格局 展示 充满活力的 各种 备受
+不仅……而且…… 综上所述 总而言之 标志着 作为……的证明
+在这个……的时代 随着……的发展
+```
 
 ## Risk levels
 

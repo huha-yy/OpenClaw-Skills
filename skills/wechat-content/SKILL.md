@@ -91,3 +91,26 @@ Generate complete WeChat Official Account article packages. WeChat articles requ
 - Cover: 2.35:1 aspect ratio. Professional, not sensational.
 - No fabricated data, no unverified trends, no market predictions without stating uncertainty.
 - Avoid 广告法 risk words and over-promising language.
+
+## 去AI味规则（公众号版）
+
+### 禁止使用的AI高频词
+```
+此外 值得一提的是 不可忽视的是 标志着 作为……的证明
+格局 展示 充满活力的 各种 备受 深入探讨
+不仅……而且…… 综上所述 总而言之 在这个……的时代
+值得注意的是 随着……的发展 让我们拭目以待
+```
+
+### 禁止的模板化结构
+- **"挑战与展望"板块**：避免"尽管面临若干挑战……未来展望……"的套话结尾
+- **三段式排比**：公众号最常见AI痕迹，用两项或四项打破
+- **虚假范围句式**："从X到Y"仅在X和Y在有意义的尺度上时使用
+- **系动词回避**：减少"作为""代表""标志着""充当"的使用频率
+
+### 交付前自检清单
+- [ ] 每段是否有具体数据/案例/来源支撑？
+- [ ] 是否存在"值得注意的是""值得一提的是"等填充过渡？
+- [ ] 结尾是否模板化？最后一段用具体结论替代套话
+- [ ] 是否过度使用分号连接从句？改成短句，用句号断开
+- [ ] "的"使用频率：每句不超过3个

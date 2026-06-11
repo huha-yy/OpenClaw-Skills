@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """
-飞书发布主脚本 —— 读取发布包目录下的所有 md 文件，按顺序拼接为一篇飞书 Doc
+飞书发布主脚本 —— 读取发布包目录下的 md 文件，按顺序拼接为一篇飞书 Doc
 并推送到飞书。支持 Markdown 图片语法 `![alt](path)` 和自动图片附录。
+支持按平台分推（公众号 / 小红书 / 抖音 / 全量）。
 
 用法:
   # 干跑测试（只验证转换逻辑，不调 API）
   python push_to_feishu.py --package-dir outputs/免陪照护_全链路2/ --dry-run
 
-  # 真实推送
+  # 真实推送（全量发布包）
   python push_to_feishu.py --package-dir outputs/免陪照护_全链路2/ --title "免陪照护服务 - 内容发布包"
+
+  # 单平台推送（公众号文章，含内联图片）
+  python push_to_feishu.py --package-dir outputs/免陪照护_全链路2/ --platform wechat
+
+  # 单平台推送（小红书笔记，含内联图片）
+  python push_to_feishu.py --package-dir outputs/免陪照护_全链路2/ --platform xhs
 
 环境变量:
   FEISHU_APP_ID     飞书应用 App ID
@@ -45,10 +52,29 @@ FEISHU_BASE = "https://open.feishu.cn/open-apis"
 CREATE_DOC_URL = f"{FEISHU_BASE}/docx/v1/documents"
 GET_DOC_INFO_URL = f"{FEISHU_BASE}/docx/v1/documents/{{doc_id}}"
 DRIVE_UPLOAD_URL = f"{FEISHU_BASE}/drive/v1/medias/upload_all"
+IM_MESSAGE_URL = f"{FEISHU_BASE}/im/v1/messages?receive_id_type=open_id"
+
+# 推完后的私聊通知（改为你的 open_id）
+NOTIFY_OPEN_ID = "ou_165b23847a9da512d815a88e09fb8d89"
 
 # 频率控制: 最少间隔秒数 (3 req/s → ~0.33s per req)
 MIN_REQ_INTERVAL = 0.34
 _last_request_time = 0.0
+
+# 单平台推送文件列表
+PLATFORM_FILES = {
+    "wechat": ["wechat/article.md", "wechat/cover.md"],
+    "xhs": ["xiaohongshu/note.md", "xiaohongshu/image_storyboard.md"],
+    "douyin": ["douyin/video_script.md", "douyin/storyboard.md"],
+}
+
+# 平台名称后缀（用于文档标题）
+PLATFORM_SUFFIX = {
+    "wechat": "公众号文章",
+    "xhs": "小红书笔记",
+    "douyin": "抖音视频",
+    "all": "内容发布包",
+}
 
 
 def rate_limit():
@@ -381,7 +407,7 @@ MD_FILE_ORDER = [
 ]
 
 
-def collect_md_files(package_dir):
+def collect_md_files(package_dir, platform="all"):
     """
     收集发布包目录下的 md 文件，按顺序返回。
 
@@ -390,29 +416,35 @@ def collect_md_files(package_dir):
     files = []
     errors = []
 
-    for rel_path in MD_FILE_ORDER:
+    # 根据平台确定要收集的文件列表
+    if platform == "all":
+        file_order = list(MD_FILE_ORDER)
+    else:
+        file_order = list(PLATFORM_FILES.get(platform, []))
+
+    for rel_path in file_order:
         full = os.path.join(package_dir, rel_path)
         if os.path.isfile(full):
-            # label 用于在文档中显示章节标题
             label = os.path.splitext(os.path.basename(rel_path))[0]
             files.append((full, rel_path))
         else:
             errors.append(f"文件不存在: {rel_path}")
 
-    # 收集未被列入顺序表的额外 md 文件
-    known_paths = set(MD_FILE_ORDER)
-    for root, dirs, fnames in os.walk(package_dir):
-        for fname in fnames:
-            if fname.endswith(".md"):
-                rel = os.path.relpath(os.path.join(root, fname), package_dir).replace("\\", "/")
-                if rel not in known_paths:
-                    files.append((os.path.join(root, fname), rel))
-                    known_paths.add(rel)
+    # 仅全量模式收集未被列入顺序表的额外 md 文件
+    if platform == "all":
+        known_paths = set(MD_FILE_ORDER)
+        for root, dirs, fnames in os.walk(package_dir):
+            for fname in fnames:
+                if fname.endswith(".md"):
+                    rel = os.path.relpath(os.path.join(root, fname), package_dir).replace("\\", "/")
+                    if rel not in known_paths:
+                        files.append((os.path.join(root, fname), rel))
+                        known_paths.add(rel)
 
     return files, errors
 
 
-def build_document_content(package_dir):
+def build_document_content(package_dir, platform="all"):
     """
     读取所有 md 文件，拼成一篇主文档的飞书 blocks。
 
@@ -420,7 +452,7 @@ def build_document_content(package_dir):
         all_blocks: list[dict]  — 飞书 block 数组
         stats: dict             — 统计信息 {md_files: int, total_blocks: int, chunks: int}
     """
-    files, errors = collect_md_files(package_dir)
+    files, errors = collect_md_files(package_dir, platform)
     all_blocks = []
 
     for i, (file_path, rel_path) in enumerate(files):
@@ -461,13 +493,108 @@ def build_document_content(package_dir):
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# 推送完成通知
+# ---------------------------------------------------------------------------
+
+def send_notification(title, doc_url, stats, image_count, image_fail, auth=None):
+    """推送完成后发送飞书通知。
+
+    优先使用群机器人 webhook（FEISHU_WEBHOOK_URL），
+    其次使用 IM 私聊（需 FEISHU_APP_ID/APP_SECRET + im:message 权限）。
+
+    Webhook 方式无需 token，最简单可靠。
+    """
+    webhook_url = os.environ.get("FEISHU_WEBHOOK_URL", "").strip()
+
+    md_count = stats.get("md_files", 0)
+    block_count = stats.get("total_blocks", 0)
+
+    card = {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "title": {"tag": "plain_text", "content": "📄 飞书推送完成"},
+            "template": "blue",
+        },
+        "elements": [
+            {
+                "tag": "div",
+                "fields": [
+                    {"is_short": True, "text": {"tag": "lark_md", "content": f"**标题**\n{title}"}},
+                    {"is_short": True, "text": {"tag": "lark_md", "content": "**状态**\n✅ 推送成功"}},
+                    {"is_short": True, "text": {"tag": "lark_md", "content": f"**内容**\n{md_count} 篇 · {block_count} blocks"}},
+                    {"is_short": True, "text": {"tag": "lark_md", "content": f"**图片**\n{image_count} 张" if image_count else "**图片**\n无"}},
+                ],
+            },
+            {"tag": "hr"},
+            {
+                "tag": "action",
+                "actions": [
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "🔗 查看文档"},
+                        "type": "primary",
+                        "url": doc_url,
+                    }
+                ],
+            },
+        ],
+    }
+
+    # --- Webhook 方式（优先）---
+    if webhook_url:
+        payload = {"msg_type": "interactive", "card": card}
+        try:
+            rate_limit()
+            req = urllib.request.Request(
+                webhook_url,
+                data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                headers={"Content-Type": "application/json; charset=utf-8"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req) as resp:
+                result = json.loads(resp.read())
+            if result.get("code") == 0 or result.get("StatusCode") == 0:
+                print(f"  群机器人通知已发送")
+            else:
+                print(f"  群机器人通知失败: {result}", file=sys.stderr)
+        except Exception as e:
+            print(f"  群机器人通知异常: {e}", file=sys.stderr)
+        return
+
+    # --- IM 私聊方式（fallback）---
+    if not auth:
+        print("  跳过通知: 未配置 FEISHU_WEBHOOK_URL 且无 auth")
+        return
+    if not NOTIFY_OPEN_ID or NOTIFY_OPEN_ID == "这里填你的飞书open_id":
+        print("  跳过通知: 未配置 NOTIFY_OPEN_ID")
+        return
+
+    body = {
+        "receive_id": NOTIFY_OPEN_ID,
+        "msg_type": "interactive",
+        "content": json.dumps(card, ensure_ascii=False),
+    }
+
+    rate_limit()
+    resp = api_call("POST", IM_MESSAGE_URL, auth, body)
+
+    if resp.get("code") == 0:
+        print(f"  私聊通知已发送")
+    else:
+        print(f"  私聊通知发送失败: code={resp.get('code')} msg={resp.get('msg')}", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
 # 主流程
 # ---------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(description="飞书发布 — 将发布包推送到飞书 Doc")
     parser.add_argument("--package-dir", required=True, help="发布包目录路径")
-    parser.add_argument("--title", default=None, help="文档标题（默认使用目录名）")
+    parser.add_argument("--title", default=None, help="文档标题（默认使用目录名 + 平台后缀）")
+    parser.add_argument("--platform", default="all", choices=["all", "wechat", "xhs", "douyin"],
+                        help="推送目标平台 (all=全量, wechat=公众号, xhs=小红书, douyin=抖音)")
     parser.add_argument("--dry-run", action="store_true", help="干跑模式：只转换不调 API")
     parser.add_argument("--output-json", default=None, help="干跑时将 blocks JSON 写到指定文件")
     args = parser.parse_args()
@@ -477,15 +604,16 @@ def main():
         print(f"ERROR: 目录不存在: {package_dir}", file=sys.stderr)
         sys.exit(1)
 
-    title = args.title or f"{os.path.basename(package_dir)} - 内容发布包"
+    title = args.title or f"{os.path.basename(package_dir)} - {PLATFORM_SUFFIX[args.platform]}"
 
     print(f"Package dir: {package_dir}")
     print(f"Title: {title}")
+    print(f"Platform: {args.platform}")
     print()
 
     # 1. 解析 Markdown → blocks
     print("--- 解析 Markdown 文件 ---")
-    all_blocks, chunks, stats = build_document_content(package_dir)
+    all_blocks, chunks, stats = build_document_content(package_dir, args.platform)
 
     print(f"  MD 文件: {stats['md_files']}")
     print(f"  Blocks: {stats['total_blocks']}")
@@ -496,14 +624,15 @@ def main():
             print(f"    - {e}")
     print()
 
-    # 1.5 收集已生成图片 → 追加附录
-    images = collect_generated_images(package_dir)
-    if images:
-        print(f"  收集到 {len(images)} 张图片，追加图片附录")
-        append_image_appendix(all_blocks, images)
-        stats["total_blocks"] = len(all_blocks)
-        print(f"  追加附录后 Blocks: {stats['total_blocks']}")
-        print()
+    # 1.5 收集已生成图片 → 追加附录（仅全量模式；单平台模式下图片已内联到文章）
+    if args.platform == "all":
+        images = collect_generated_images(package_dir)
+        if images:
+            print(f"  收集到 {len(images)} 张图片，追加图片附录")
+            append_image_appendix(all_blocks, images)
+            stats["total_blocks"] = len(all_blocks)
+            print(f"  追加附录后 Blocks: {stats['total_blocks']}")
+            print()
 
     if not all_blocks:
         print("ERROR: 没有解析到任何内容块", file=sys.stderr)
@@ -606,6 +735,9 @@ def main():
     if fail_count > 0:
         print(f"  WARNING: {fail_count} 个分块失败，文档内容可能不完整", file=sys.stderr)
         sys.exit(1)
+
+    # 私聊通知
+    send_notification(title, doc_url, stats, image_count, image_fail, auth)
 
     print()
     print("Done! 飞书文档已就绪。")

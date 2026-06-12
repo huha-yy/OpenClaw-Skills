@@ -23,11 +23,12 @@ default/
 # AI 记忆
 memory/
 
-# Python
-__pycache__/
-
 # 凭据文件
 .env
+
+# ClawHub 参考库（只读，不纳入项目）
+clawhub-skills-teach/
+.clawhub/
 
 # Python
 __pycache__/

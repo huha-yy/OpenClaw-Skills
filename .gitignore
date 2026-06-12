@@ -26,8 +26,8 @@ memory/
 # Python
 __pycache__/
 
-# OpenClaw 运行时临时脚本
-scripts/
+# 凭据文件
+.env
 
 # 系统临时文件
 Thumbs.db

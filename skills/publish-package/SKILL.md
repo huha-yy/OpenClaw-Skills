@@ -94,4 +94,4 @@ outputs/{date}_{title_slug}/
 - If `compliance.requires_human_review === true`, mark all platform statuses as "待审核" with the specific review items called out.
 - Validate that no required file is empty before considering the package complete.
 - All file paths use Unix-style forward slashes.
-- Use `scripts/write_package.py` for file I/O operations.
+- Use `skills/publish-package/scripts/write_package.py` for file I/O operations.

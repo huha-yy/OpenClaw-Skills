@@ -110,31 +110,55 @@ openclaw cron update daily-content-pipeline \
 
 ---
 
-## 5. ComfyUI 安装（可选）
+## 5. ComfyUI 安装（可选，公司服务器推荐启用）
 
-ComfyUI 用于 AI 文生图。如果不需要 AI 生图（或仅使用 Pexels 图库），可跳过此节。
+ComfyUI 用于 AI 文生图（Pexels 搜不到合适图片时兜底）。公司服务器 RTX 4060 8GB 完全够用。
 
 ### 5.1 硬件要求
 
-- NVIDIA GPU，建议 6GB+ 显存
-- 6GB 显存可运行 SD 1.5（v1-5-pruned-emaonly, ~4GB）
-- SDXL 需要 8-12GB 显存
+| GPU | 推荐模型 | 单图耗时 |
+|-----|---------|---------|
+| RTX 4060 8GB | SD 1.5 / SDXL | SD 1.5: ~15-30s / SDXL: ~30-60s |
+| RTX 3060 6GB | SD 1.5 | ~20-40s |
+| 无 GPU / < 4GB | 不建议 | — |
 
-### 5.2 安装步骤
+**推荐 SD 1.5**：模型小（~4GB）、速度快、社区成熟，且与当前 pipeline 的 768x512 分辨率完美匹配。
+
+预算允许可升 SDXL（~7GB），画质更好，但需调整 pipeline 中的分辨率参数。
+
+### 5.2 安装 ComfyUI
 
 ```bash
-# 安装 ComfyUI
+# 安装
 git clone https://github.com/comfyanonymous/ComfyUI.git /opt/ComfyUI
 cd /opt/ComfyUI
 pip install -r requirements.txt
 
-# 下载 SD 1.5 模型
+# 下载 SD 1.5 模型（推荐）
 mkdir -p models/checkpoints
 wget -O models/checkpoints/v1-5-pruned-emaonly.safetensors \
   https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors
+
+# 可选：SDXL 模型（画质更好，但需要 7GB+ 显存）
+# wget -O models/checkpoints/sd_xl_base_1.0.safetensors \
+#   https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors
 ```
 
-### 5.3 启动
+### 5.3 NVIDIA 驱动 + CUDA 检查
+
+```bash
+nvidia-smi                          # 应显示 RTX 4060 和驱动版本
+python3 -c "import torch; print(torch.cuda.is_available())"  # 应输出 True
+```
+
+**如果 torch 未安装 CUDA 版本：**
+
+```bash
+pip uninstall torch torchvision -y
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+```
+
+### 5.4 启动
 
 ```bash
 # 前台启动（测试用）
@@ -164,12 +188,27 @@ systemctl daemon-reload
 systemctl enable --now comfyui
 ```
 
-### 5.4 配置 COMFYUI_URL
+### 5.5 配置 COMFYUI_URL
 
 在 `.env` 中取消注释并设置：
 
 ```bash
 COMFYUI_URL=http://127.0.0.1:8188
+```
+
+### 5.6 切换模型（可选）
+
+默认使用 SD 1.5。如需切换为 SDXL：
+
+```bash
+# 1. 下载 SDXL 模型
+cd /opt/ComfyUI/models/checkpoints
+wget -O sd_xl_base_1.0.safetensors \
+  https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors
+
+# 2. 修改 comfyui_client.py 默认模型
+sed -i 's/v1-5-pruned-emaonly/sd_xl_base_1.0/' \
+  /opt/openclaw/D-OpenClaw/skills/image-generator/scripts/comfyui_client.py
 ```
 
 ---

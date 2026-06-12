@@ -10,24 +10,33 @@
 
 ---
 
-## 运维部署清单（6 步）
+## 运维部署清单（6 步，全部做完才算完成）
 
-| 步骤 | 操作 | 目的 |
-|------|------|------|
-| **① 克隆** | `git clone -b delivery https://github.com/huha-yy/OpenClaw-Skills.git /opt/openclaw/D-OpenClaw` | 代码拉到服务器 |
-| **② 进入目录** | `cd /opt/openclaw/D-OpenClaw` | OpenClaw 自动扫描 `skills/` 发现 13 个 skill |
-| **③ 填凭据** | `cp .env.example .env && vim .env` | 飞书/DeepSeek/Pexels Key（唯一手动步骤） |
-| **④ 安装环境** | `openclaw agent --session-key "setup" --timeout 1200 --message "执行 setup-environment skill"` | OpenClaw 自动装 ComfyUI + SDXL + systemd |
-| **⑤ 配置 Provider** | 按 `docs/openclaw_config_guide.md` 编辑 `openclaw.json` | DeepSeek provider + 飞书 channel + Agent 默认参数 |
-| **⑥ 创建定时任务** | `openclaw cron create --name "daily-content-pipeline" --schedule "0 23 * * *" --timezone "Asia/Shanghai" --timeout 1800 --message "$(cat scripts/pipeline-prompt.txt)"` | 每日 23:00 自动跑 11 步流水线 |
+| 步骤 | 方式 | 操作 | 目的 |
+|------|------|------|------|
+| **① 克隆** | 手动 | `git clone -b delivery https://github.com/huha-yy/OpenClaw-Skills.git /opt/openclaw/D-OpenClaw` | 代码拉到服务器 |
+| **② 进入目录** | 手动 | `cd /opt/openclaw/D-OpenClaw` | OpenClaw 自动扫描 `skills/` 发现 13 个 skill |
+| **③ 填凭据** | 手动 | `cp .env.example .env && vim .env` | 飞书/DeepSeek/Pexels Key |
+| **④ 安装环境** | 自动 | `openclaw agent --session-key "setup" --timeout 1200 --message "执行 setup-environment skill"` | OpenClaw 自动装 ComfyUI + SDXL + systemd |
+| **⑤ 配置 Provider** | 手动 | 按 `docs/openclaw_config_guide.md` 编辑 `openclaw.json` | DeepSeek provider + 飞书 channel + Agent 默认参数 |
+| **⑥ 创建定时任务** | 手动 | `openclaw cron create --name "daily-content-pipeline" --schedule "0 23 * * *" --timezone "Asia/Shanghai" --timeout 1800 --message "$(cat scripts/pipeline-prompt.txt)"` | 每日 23:00 自动跑流水线 |
 
-### 执行依赖
+> **全部 6 步完成后，流水线开始每日自动运行。缺任何一步都会导致跑不起来。**
+
+### 执行顺序
 
 ```
-①② → ③ → ④ → ⑤ → ⑥
-         ↑
-    先有凭据才能装环境（setup.sh 会检查）
-    ④ 和 ⑤⑥ 互不依赖，可并行
+①②（拿代码，手动）
+  ↓
+③（填凭据，手动）
+  ↓
+④（装 ComfyUI + 模型，OpenClaw 自动，~5-15 分钟）
+  ↓
+⑤（配 openclaw.json，手动）
+  ↓
+⑥（建 Cron，手动）
+  ↓
+✅ 完成 — 每日 23:00 自动运行
 ```
 
 ---

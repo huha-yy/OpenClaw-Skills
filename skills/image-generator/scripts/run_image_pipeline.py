@@ -175,8 +175,14 @@ def main():
                     pexels_used += 1
                     print(f"    -> Pexels (score={score}) by {best.get('photographer')}")
 
-        # 策略二：ComfyUI 兜底
+        # 策略二：ComfyUI 兜底（仅当 COMFYUI_URL 环境变量已配置时启用）
         if entry["source"] is None:
+            if not os.environ.get("COMFYUI_URL"):
+                entry["source"] = "skipped"
+                print(f"    -> ComfyUI disabled (COMFYUI_URL not set)")
+                results.append(entry)
+                print()
+                continue
             path = run_comfyui(
                 positive=img["sd_positive"],
                 negative=img["sd_negative"],

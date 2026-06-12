@@ -51,5 +51,5 @@ docs/            # 系统设计与部署文档
 |------|------|
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署指南（运维人员必读） |
 | [openclaw_config_guide.md](docs/openclaw_config_guide.md) | OpenClaw 配置文件指南 |
-| [openclaw_operations_guide.md](docs/openclaw_operations_guide.md) | 日常运营操作手册 |
+| [DELIVERY_SUMMARY.md](docs/DELIVERY_SUMMARY.md) | 交付总结（运维清单 + 技术决策 + 架构总览） |
 | CLAUDE.md | 开发者参考（项目架构、设计原则、最近修复） |

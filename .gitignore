@@ -26,7 +26,11 @@ memory/
 # Python
 __pycache__/
 
+# OpenClaw 运行时临时脚本
+scripts/
+
 # 系统临时文件
 Thumbs.db
 .DS_Store
 *.tmp
+nul

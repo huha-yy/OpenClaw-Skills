@@ -121,13 +121,15 @@ bash scripts/setup.sh
 
 ### 4.3 创建定时任务
 
+流水线指令已预置在 `scripts/pipeline-prompt.txt`，创建 Cron 时直接引用：
+
 ```bash
 openclaw cron create \
   --name "daily-content-pipeline" \
   --schedule "0 23 * * *" \
   --timezone "Asia/Shanghai" \
   --timeout 1800 \
-  --message "执行完整11步内容运营流水线：从热点监控到飞书推送。"
+  --message "$(cat scripts/pipeline-prompt.txt)"
 ```
 
 配置 Webhook 通知：
@@ -302,7 +304,7 @@ python3 skills/image-generator/scripts/comfyui_client.py \
 openclaw agent \
   --session-key "pipeline-test-$(date +%Y%m%d)" \
   --timeout 1800 \
-  --message "执行完整11步内容运营流水线，主题自选当前热点"
+  --message "$(cat scripts/pipeline-prompt.txt)"
 ```
 
 **预期**：30 分钟内完成，飞书群收到推送消息。

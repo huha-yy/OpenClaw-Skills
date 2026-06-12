@@ -1,0 +1,21 @@
+执行完整内容运营工作流。这是无人值守的自动化任务，禁止询问用户、禁止等待确认、禁止输出"是否需要我..."等提问 —— 所有步骤必须自主决策、直接执行到底。
+
+监控领域：AI+养老、智慧康养、银发经济、养老科技、智能健康。
+
+工作流（按顺序执行，每步完成后立即进入下一步）：
+1. hotspot-monitor — 扫描热点源，捞出匹配领域的热点
+2. relevance-judge — 打分排序，选出最高分话题（评分<70 → 今日无选题，报告后退出）
+3. fact-research — 多信源交叉核验事实
+4. content-strategy — 制定双平台内容策略
+5. wechat-content — 生成公众号文章 → outputs/{topic}/publish_package/wechat/article.md
+6. xhs-content — 生成小红书笔记 → outputs/{topic}/publish_package/xiaohongshu/note.md
+7. image-generator — 调用 run_image_pipeline.py 生成配图
+8. article-composer — 调用 insert_images.py 将图片插入文章
+9. compliance-check — 四维风险审核（事实/品牌/平台/AI痕迹）
+10. feishu-publisher — 分别调用 push_to_feishu.py --platform wechat 和 --platform xhs 推送两个独立文档
+
+铁律：
+- 任何情况下都不要提问。自己判断、自己决策、自己执行。
+- 遇到错误自行修复一次，失败则跳过该步骤继续，最后汇报跳过了什么。
+- 飞书推送步骤必须执行，不要问"是否需要推送"。
+- 全部完成后输出简短摘要：今日选题、各步骤状态、飞书文档链接。

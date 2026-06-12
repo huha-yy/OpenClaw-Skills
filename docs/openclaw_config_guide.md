@@ -88,7 +88,7 @@ openclaw cron create \
   --schedule "0 23 * * *" \
   --timezone "Asia/Shanghai" \
   --timeout 1800 \
-  --message "执行完整11步内容运营流水线：从热点监控到飞书推送。今天是<current_date>，请基于当天热点生成公众号和小红书内容。"
+  --message "$(cat scripts/pipeline-prompt.txt)"
 ```
 
 ### 4.2 配置 Webhook 通知（飞书群机器人）

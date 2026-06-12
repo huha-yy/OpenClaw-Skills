@@ -35,7 +35,7 @@ nvidia-smi
 - **有 GPU 输出** → 继续步骤 3 安装 ComfyUI
 - **无 GPU / 命令不存在** → 跳过步骤 3，告知用户：`环境初始化完成（纯 Pexels 模式，无 AI 生图）。如需 AI 生图请安装 NVIDIA GPU 后重新运行。`
 
-### 步骤 3：一键安装 ComfyUI + SD 1.5
+### 步骤 3：一键安装 ComfyUI + SDXL
 
 ```bash
 bash skills/setup-environment/scripts/install_comfyui.sh
@@ -45,7 +45,7 @@ bash skills/setup-environment/scripts/install_comfyui.sh
 1. GPU 检测 + 显存检查（<4GB 拒绝安装）
 2. PyTorch CUDA 安装（如未安装）
 3. ComfyUI 克隆 + 依赖安装
-4. SD 1.5 模型下载（~4GB）
+4. SDXL 模型下载（~4GB）
 5. systemd 自启动服务创建
 6. ComfyUI 启动 + 测试生图
 
@@ -78,7 +78,7 @@ bash scripts/setup.sh
 
 ✓ 环境自检通过
 ✓ ComfyUI 已安装并运行
-✓ SD 1.5 模型已就绪
+✓ SDXL 模型已就绪
 ✓ 测试生图成功
 
 流水线图片策略：Pexels 优先 → ComfyUI 兜底

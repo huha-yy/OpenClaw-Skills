@@ -11,8 +11,8 @@ set -e
 # -------- 配置 --------
 COMFYUI_DIR="${COMFYUI_DIR:-/opt/ComfyUI}"
 COMFYUI_PORT="${COMFYUI_PORT:-8188}"
-MODEL_URL="https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors"
-MODEL_NAME="v1-5-pruned-emaonly.safetensors"
+MODEL_URL="https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors"
+MODEL_NAME="sd_xl_base_1.0.safetensors"
 PYTORCH_INDEX="https://download.pytorch.org/whl/cu121"
 
 RED='\033[0;31m'
@@ -22,7 +22,7 @@ NC='\033[0m'
 
 echo ""
 echo "============================================"
-echo " ComfyUI + SD 1.5 一键安装"
+echo " ComfyUI + SDXL 一键安装"
 echo "============================================"
 echo ""
 
@@ -42,8 +42,8 @@ fi
 echo -e "  ${GREEN}✓${NC} $GPU_INFO"
 
 VRAM_MB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1)
-if [ "$VRAM_MB" -lt 4000 ]; then
-    echo -e "${RED}✗ 显存不足（${VRAM_MB}MB < 4GB），无法运行 SD 1.5${NC}"
+if [ "$VRAM_MB" -lt 6000 ]; then
+    echo -e "${RED}✗ 显存不足（${VRAM_MB}MB < 6GB），无法运行 SDXL${NC}"
     exit 1
 fi
 
@@ -87,9 +87,9 @@ cd "$COMFYUI_DIR"
 pip install -r requirements.txt -q 2>&1 | tail -1
 echo -e "  ${GREEN}✓${NC} Python 依赖安装完成"
 
-# -------- 4. 下载 SD 1.5 模型 --------
+# -------- 4. 下载 SDXL 模型 --------
 echo ""
-echo "[4/6] 下载 SD 1.5 模型..."
+echo "[4/6] 下载 SDXL 模型..."
 
 MODEL_DIR="$COMFYUI_DIR/models/checkpoints"
 mkdir -p "$MODEL_DIR"
@@ -193,7 +193,7 @@ workflow = {
     '1': {'inputs': {'ckpt_name': '$MODEL_NAME'}, 'class_type': 'CheckpointLoaderSimple'},
     '2': {'inputs': {'text': '$TEST_POSITIVE', 'clip': ['1', 1]}, 'class_type': 'CLIPTextEncode'},
     '3': {'inputs': {'text': '$TEST_NEGATIVE', 'clip': ['1', 1]}, 'class_type': 'CLIPTextEncode'},
-    '4': {'inputs': {'width': 768, 'height': 512, 'batch_size': 1}, 'class_type': 'EmptyLatentImage'},
+    '4': {'inputs': {'width': 1024, 'height': 1024, 'batch_size': 1}, 'class_type': 'EmptyLatentImage'},
     '5': {'inputs': {'seed': seed, 'steps': 20, 'cfg': 7.0, 'sampler_name': 'dpmpp_2m', 'scheduler': 'karras', 'denoise': 1.0, 'model': ['1', 0], 'positive': ['2', 0], 'negative': ['3', 0], 'latent_image': ['4', 0]}, 'class_type': 'KSampler'},
     '6': {'inputs': {'samples': ['5', 0], 'vae': ['1', 2]}, 'class_type': 'VAEDecode'},
     '7': {'inputs': {'filename_prefix': 'install_test', 'images': ['6', 0]}, 'class_type': 'SaveImage'},

@@ -186,8 +186,8 @@ def main():
             path = run_comfyui(
                 positive=img["sd_positive"],
                 negative=img["sd_negative"],
-                width=768,
-                height=512,
+                width=1024,
+                height=1024,
                 steps=img.get("sd_steps", 25),
                 cfg=img.get("sd_cfg", 7.0),
                 output_dir=output_dir,

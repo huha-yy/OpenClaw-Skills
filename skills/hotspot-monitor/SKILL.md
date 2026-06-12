@@ -14,7 +14,7 @@ Poll configured hotspot sources, cluster duplicates, and output a clean list of 
 1. Load `configs/hotspot_sources.yaml` to get source list and poll intervals.
 2. For each source, fetch latest entries. For RSS sources use standard HTTP GET + XML parse. For API sources use the configured endpoint and auth.
 3. Normalize each entry to the standard hotspot schema (see Output).
-4. Run `scripts/cluster_hotspots.py` to deduplicate by title similarity, URL, and keyword overlap.
+4. Run `skills/hotspot-monitor/scripts/cluster_hotspots.py` to deduplicate by title similarity, URL, and keyword overlap.
 5. Output the deduplicated hotspot list as JSON.
 
 ## Input

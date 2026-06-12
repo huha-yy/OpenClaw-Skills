@@ -9,19 +9,21 @@
 运维人员只需三步，OpenClaw 自动完成环境安装。
 
 ```bash
-# 1. 克隆仓库
+# 1. 克隆仓库（skills 在 skills/ 目录下，无需手动安装）
 git clone -b delivery <仓库地址> /opt/openclaw/D-OpenClaw
 cd /opt/openclaw/D-OpenClaw
 
 # 2. 填写凭据（唯一手动步骤）
 cp .env.example .env && vim .env
 
-# 3. 让 OpenClaw 接管一切
+# 3. 让 OpenClaw 接管一切（在项目目录内执行，OpenClaw 自动发现 skills/）
 openclaw agent --session-key "setup" --timeout 1200 \
   --message "执行 setup-environment skill，安装所有环境依赖（ComfyUI + SD模型 + 验证）"
 ```
 
 OpenClaw 会自动：检测 GPU → 安装 PyTorch CUDA → 克隆 ComfyUI → 下载 SD 1.5 模型 → 创建 systemd 服务 → 启动并测试生图。
+
+> **Skills 无需安装**：OpenClaw 启动时自动扫描当前目录下的 `skills/*/SKILL.md`，`git clone` 完成即全部可用。`cd` 到项目目录再执行 `openclaw agent` 即可。
 
 > 如果服务器没有 GPU，OpenClaw 会自动跳过 ComfyUI 安装，以纯 Pexels 模式运行。
 

@@ -12,31 +12,103 @@
 
 ## 运维部署清单（6 步，全部做完才算完成）
 
-| 步骤 | 方式 | 操作 | 目的 |
-|------|------|------|------|
-| **① 克隆** | 手动 | `git clone -b delivery https://github.com/huha-yy/OpenClaw-Skills.git /opt/openclaw/D-OpenClaw` | 代码拉到服务器 |
-| **② 进入目录** | 手动 | `cd /opt/openclaw/D-OpenClaw` | OpenClaw 自动扫描 `skills/` 发现 13 个 skill |
-| **③ 填凭据** | 手动 | `cp .env.example .env && vim .env` | 飞书/DeepSeek/Pexels Key |
-| **④ 安装环境** | 自动 | `openclaw agent --session-key "setup" --timeout 1200 --message "执行 setup-environment skill"` | OpenClaw 自动装 ComfyUI + SDXL + systemd |
-| **⑤ 配置 Provider** | 手动 | 按 `docs/openclaw_config_guide.md` 编辑 `openclaw.json` | DeepSeek provider + 飞书 channel + Agent 默认参数 |
-| **⑥ 创建定时任务** | 手动 | `openclaw cron create --name "daily-content-pipeline" --schedule "0 23 * * *" --timezone "Asia/Shanghai" --timeout 1800 --message "$(cat scripts/pipeline-prompt.txt)"` | 每日 23:00 自动跑流水线 |
+### ① 克隆仓库（手动）
 
-> **全部 6 步完成后，流水线开始每日自动运行。缺任何一步都会导致跑不起来。**
+```bash
+git clone -b delivery https://github.com/huha-yy/OpenClaw-Skills.git /opt/openclaw/D-OpenClaw
+```
+
+### ② 进入目录（手动）
+
+```bash
+cd /opt/openclaw/D-OpenClaw
+```
+
+> OpenClaw 自动扫描当前目录下的 `skills/*/SKILL.md`，13 个 skill 即刻可用，无需手动安装。
+
+### ③ 填写凭据（手动）
+
+```bash
+cp .env.example .env && vim .env
+```
+
+按 `.env.example` 中的注释填写以下 5 个必填项：
+
+| 变量 | 获取地址 |
+|------|---------|
+| `FEISHU_APP_ID` | https://open.feishu.cn/app → 应用凭证 |
+| `FEISHU_APP_SECRET` | 同上 |
+| `FEISHU_WEBHOOK_URL` | 飞书群 → 群设置 → 群机器人 → 添加机器人 → Webhook 地址 |
+| `DEEPSEEK_API_KEY` | https://platform.deepseek.com/api_keys |
+| `PEXELS_API_KEY` | https://www.pexels.com/api/ （免费注册，即获 API Key） |
+
+> `COMFYUI_URL` 可暂时不填，步骤④会自动填写。
+
+### ④ 安装环境（OpenClaw 自动）
+
+```bash
+openclaw agent --session-key "setup" --timeout 1200 \
+  --message "执行 setup-environment skill，安装所有环境依赖"
+```
+
+OpenClaw 自动完成：检测 GPU → 安装 PyTorch CUDA → 克隆 ComfyUI → 下载 SDXL 模型（~7GB）→ 创建 systemd 服务 → 启动并测试生图。
+
+> 预计耗时 5-15 分钟（主要花在模型下载）。
+
+### ⑤ 配置 OpenClaw Provider（手动）
+
+编辑 `openclaw.json`，添加 DeepSeek provider 和 Agent 默认参数。详细配置参考 `docs/openclaw_config_guide.md`。
+
+核心配置摘要：
+
+```jsonc
+{
+  "providers": [
+    {
+      "id": "deepseek",
+      "type": "openai-compatible",
+      "baseURL": "https://api.deepseek.com/v1",
+      "apiKey": "${DEEPSEEK_API_KEY}",
+      "models": [{ "id": "deepseek-v4-pro", "contextWindow": 125000, "maxTokens": 8192 }]
+    }
+  ],
+  "agents": {
+    "defaults": {
+      "model": "deepseek/deepseek-v4-pro",
+      "timeout": 1800,
+      "maxTurns": 50,
+      "workspace": "/opt/openclaw/D-OpenClaw"
+    }
+  }
+}
+```
+
+### ⑥ 创建定时任务（手动）
+
+```bash
+openclaw cron create \
+  --name "daily-content-pipeline" \
+  --schedule "0 23 * * *" \
+  --timezone "Asia/Shanghai" \
+  --timeout 1800 \
+  --message "$(cat scripts/pipeline-prompt.txt)"
+```
+
+配置飞书群通知：
+
+```bash
+openclaw cron update daily-content-pipeline \
+  --webhook "${FEISHU_WEBHOOK_URL}"
+```
 
 ### 执行顺序
 
 ```
-①②（拿代码，手动）
-  ↓
-③（填凭据，手动）
-  ↓
-④（装 ComfyUI + 模型，OpenClaw 自动，~5-15 分钟）
-  ↓
-⑤（配 openclaw.json，手动）
-  ↓
-⑥（建 Cron，手动）
-  ↓
-✅ 完成 — 每日 23:00 自动运行
+① 克隆 ──→ ② cd ──→ ③ 填凭据 ──→ ④ 安装环境 ──→ ⑤ 配 Provider ──→ ⑥ 建 Cron
+ 手动       手动      手动         OpenClaw自动       手动              手动
+                                 (~5-15分钟)
+                                                    ↓
+                              ✅ 全部完成 — 每日 23:00 自动运行
 ```
 
 ---

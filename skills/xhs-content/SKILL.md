@@ -14,7 +14,6 @@ Generate complete Xiaohongshu note packages. The key to XHS is **text-image syne
 1. Load XHS style guide from `configs/platform_style_guides/xiaohongshu.md`.
 2. Load brand guidelines from `configs/brand_guidelines.md`.
 3. Based on the content strategy's XHS angle, generate the full package.
-4. Reference any available good examples from `samples/reference/`.
 
 ## Input
 

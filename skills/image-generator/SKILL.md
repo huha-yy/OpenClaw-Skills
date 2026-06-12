@@ -37,7 +37,7 @@ platforms: [wechat, xiaohongshu, douyin]
 python skills/image-generator/scripts/run_image_pipeline.py \
   --plan outputs/<topic>/images/image_plan.json
 ```
-6. 确认 `../images/pipeline_result.json` 生成成功后汇报结果。
+6. 确认 `outputs/<topic>/images/pipeline_result.json` 生成成功后汇报结果。
 
 ## 平台规格
 

@@ -4,6 +4,33 @@
 
 ---
 
+## 快速部署（推荐）
+
+运维人员只需三步，OpenClaw 自动完成环境安装。
+
+```bash
+# 1. 克隆仓库
+git clone -b delivery <仓库地址> /opt/openclaw/D-OpenClaw
+cd /opt/openclaw/D-OpenClaw
+
+# 2. 填写凭据（唯一手动步骤）
+cp .env.example .env && vim .env
+
+# 3. 让 OpenClaw 接管一切
+openclaw agent --session-key "setup" --timeout 1200 \
+  --message "执行 setup-environment skill，安装所有环境依赖（ComfyUI + SD模型 + 验证）"
+```
+
+OpenClaw 会自动：检测 GPU → 安装 PyTorch CUDA → 克隆 ComfyUI → 下载 SD 1.5 模型 → 创建 systemd 服务 → 启动并测试生图。
+
+> 如果服务器没有 GPU，OpenClaw 会自动跳过 ComfyUI 安装，以纯 Pexels 模式运行。
+
+---
+
+## 详细步骤（手动部署参考）
+
+以下为手动部署的详细说明，遇到问题时可参考各章节。
+
 ## 1. 环境要求
 
 | 组件 | 要求 | 说明 |

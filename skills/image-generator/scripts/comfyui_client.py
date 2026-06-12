@@ -10,6 +10,7 @@ ComfyUI API 客户端 —— 提交文生图任务并下载结果。
 """
 
 import json
+import os
 import sys
 import time
 import uuid
@@ -18,7 +19,7 @@ import urllib.request
 import urllib.parse
 
 
-COMFYUI_URL = "http://127.0.0.1:8188"
+COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188")
 TIMEOUT = 300  # 最长等待秒数
 CHECK_INTERVAL = 2  # 轮询间隔秒数
 

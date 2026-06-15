@@ -23,15 +23,11 @@ default/
 # AI 记忆
 memory/
 
-# 凭据文件
-.env
-
-# ClawHub 参考库（只读，不纳入项目）
-clawhub-skills-teach/
-.clawhub/
-
 # Python
 __pycache__/
+
+# 凭据文件
+.env
 
 # 系统临时文件
 Thumbs.db

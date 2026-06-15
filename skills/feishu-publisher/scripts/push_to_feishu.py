@@ -57,8 +57,8 @@ GET_DOC_INFO_URL = f"{FEISHU_BASE}/docx/v1/documents/{{doc_id}}"
 DRIVE_UPLOAD_URL = f"{FEISHU_BASE}/drive/v1/medias/upload_all"
 IM_MESSAGE_URL = f"{FEISHU_BASE}/im/v1/messages?receive_id_type=open_id"
 
-# 推完后的私聊通知（改为你的 open_id）
-NOTIFY_OPEN_ID = "ou_165b23847a9da512d815a88e09fb8d89"
+# 推完后的私聊通知（通过环境变量配置你的飞书 open_id）
+NOTIFY_OPEN_ID = os.environ.get("FEISHU_NOTIFY_OPEN_ID", "")
 
 # 频率控制: 最少间隔秒数 (3 req/s → ~0.33s per req)
 MIN_REQ_INTERVAL = 0.34
@@ -573,7 +573,7 @@ def send_notification(title, doc_url, stats, image_count, image_fail, auth=None)
     if not auth:
         print("  跳过通知: 未配置 FEISHU_WEBHOOK_URL 且无 auth")
         return
-    if not NOTIFY_OPEN_ID or NOTIFY_OPEN_ID == "这里填你的飞书open_id":
+    if not NOTIFY_OPEN_ID:
         print("  跳过通知: 未配置 NOTIFY_OPEN_ID")
         return
 

@@ -21,7 +21,7 @@
   FEISHU_APP_ID     飞书应用 App ID
   FEISHU_APP_SECRET 飞书应用 App Secret
 
-依赖: 无外部 pip 依赖（全部使用标准库）
+依赖: pip install python-dotenv
 """
 
 import os
@@ -32,6 +32,9 @@ import time
 import argparse
 import urllib.request
 import urllib.error
+
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), ".env"))
 
 # 确保能 import 同目录模块
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))

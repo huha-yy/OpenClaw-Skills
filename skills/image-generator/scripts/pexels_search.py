@@ -6,7 +6,7 @@ Pexels 图库检索 —— 按关键词搜索图片，输出候选结果和评�
   python pexels_search.py --query "elderly care technology" --n 10 --output result.json
 
 依赖:
-  pip install requests
+  pip install requests python-dotenv
 
 API Key 来源:
   环境变量 PEXELS_API_KEY 或 --apikey 参数
@@ -18,6 +18,9 @@ import sys
 import argparse
 import urllib.request
 import urllib.parse
+
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), ".env"))
 
 # Windows 终端默认 GBK 编码，处理不了某些 Unicode 字符，强制 UTF-8
 if sys.platform == "win32":

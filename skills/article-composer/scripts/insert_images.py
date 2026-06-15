@@ -288,11 +288,12 @@ def resolve_output_images_dir(article_path):
 
 
 def append_brand_assets(text, article_path, script_path):
-    """在文章末尾品牌信息块后附加 logo + 二维码。
+    """附加品牌素材：logo 放在文章开头，二维码放在文末品牌信息块后。
 
     1. 从 configs/brand_assets/ 拷贝 logo 和二维码到 outputs/<topic>/images/
-    2. 在文末 --- **戴恩医疗科技...** 段后插入图片引用
-    3. 如果文章没有品牌信息块，在文末自动追加品牌块 + 图片
+    2. Logo 插入到标题/封面之后（文章开头醒目位置）
+    3. 二维码插入到文末品牌信息块后
+    4. 如果文章没有品牌信息块，二维码追加到文末
 
     返回 (modified_text, report_lines)。
     """
@@ -306,37 +307,57 @@ def append_brand_assets(text, article_path, script_path):
     os.makedirs(images_dir, exist_ok=True)
 
     report = []
-    copied_tags = []
 
+    # 1) 拷贝文件
+    logo_tag = None
+    qr_tag = None
     for src_name, dst_name, label in BRAND_ASSETS_MAP:
         src_path = os.path.join(brand_src_dir, src_name)
         dst_path = os.path.join(images_dir, dst_name)
         if os.path.isfile(src_path):
             shutil.copy2(src_path, dst_path)
-            # 文章中用 ../images/ 相对路径
             tag = f"![{label}](../images/{dst_name})"
-            copied_tags.append(tag)
+            if "logo" in dst_name.lower():
+                logo_tag = tag
+            else:
+                qr_tag = tag
             report.append(f"  [brand_assets] {label} → {dst_name}")
         else:
             report.append(f"  [brand_assets] {label} — 文件缺失: {src_name}")
 
-    if not copied_tags:
-        return text, report
+    # 2) Logo — 插入到开头（标题/封面之后、正文之前）
+    if logo_tag:
+        lines = text.split("\n")
+        insert_at = 0
+        # 找第一个 # 标题之后的位置
+        for idx, line in enumerate(lines):
+            if re.match(r"^#{1,3}\s+", line):
+                insert_at = idx + 1
+                break
+        # 跳过标题后的封面图和空行
+        while insert_at < len(lines):
+            stripped = lines[insert_at].strip()
+            if stripped == "" or _IMG_TAG_RE.match(stripped):
+                insert_at += 1
+            else:
+                break
+        lines.insert(insert_at, "")
+        lines.insert(insert_at, logo_tag)
+        text = "\n".join(lines)
+        report.append("  [brand_assets] logo → 文章开头")
 
-    # 查找品牌信息块，在它后面插入图片
-    match = _BRAND_BLOCK_RE.search(text)
-    if match:
-        insert_pos = match.end()
-        before = text[:insert_pos]
-        after = text[insert_pos:]
-        # 在品牌块和配图建议之间插入实际图片
-        image_block = "\n\n" + "\n\n".join(copied_tags)
-        text = before + image_block + after
-        report.append("  [brand_assets] 图片已附加到品牌信息块后")
-    else:
-        # 没有品牌块 → 在文末追加
-        text = text.rstrip() + "\n\n" + "\n\n".join(copied_tags) + "\n"
-        report.append("  [brand_assets] 文末无品牌块，已附加到末尾")
+    # 3) 二维码 — 插入到文末品牌信息块后
+    if qr_tag:
+        match = _BRAND_BLOCK_RE.search(text)
+        if match:
+            insert_pos = match.end()
+            before = text[:insert_pos]
+            after = text[insert_pos:]
+            text = before + f"\n\n{qr_tag}" + after
+            report.append("  [brand_assets] 二维码 → 品牌信息块后")
+        else:
+            text = text.rstrip() + f"\n\n{qr_tag}\n"
+            report.append("  [brand_assets] 二维码 → 文末（无品牌块）")
 
     return text, report
 

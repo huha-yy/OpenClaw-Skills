@@ -2,6 +2,7 @@
 """
 图文编排执行层 —— 读取 pipeline_result.json，按 purpose 关键词匹配文章章节，
 将图片以 `![purpose](../images/file.png)` 格式插入到对应位置。
+末尾自动附加品牌 logo + 二维码（来自 configs/brand_assets/）。
 
 LLM 负责语义匹配（出 JSON 映射），脚本负责确定性插入。
 如果未提供 mapping JSON，脚本使用内置关键词规则自动匹配。
@@ -20,6 +21,7 @@ import os
 import re
 import sys
 import json
+import shutil
 import argparse
 
 # 章节标题匹配: 匹配 markdown heading 和 emoji 标题行
@@ -228,6 +230,94 @@ def insert_images_into_text(text, images, sections, images_rel_dir=".."):
     return text, report_lines
 
 
+# ---------------------------------------------------------------------------
+# 品牌素材自动附加
+# ---------------------------------------------------------------------------
+
+# brand_assets 中: image1 = logo, image16 = 二维码
+BRAND_ASSETS_MAP = [
+    ("image1-戴恩logo图片.jpg", "brand_logo.jpg", "品牌logo"),
+    ("image16-戴恩公司微信.jpg", "brand_qrcode.jpg", "官方二维码"),
+]
+
+# 品牌信息块的识别特征（文末 --- 后的公司介绍段）
+_BRAND_BLOCK_RE = re.compile(
+    r"(\*{2}戴恩医疗科技.*?\*{2}[\s\S]*?configs/brand_assets/?)",
+    re.MULTILINE,
+)
+
+
+def resolve_workspace_root(script_path):
+    """从脚本位置向上 3 层到 workspace 根（skills/article-composer/scripts → workspace）。"""
+    return os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(script_path)), "..", "..", ".."))
+
+
+def resolve_output_images_dir(article_path):
+    """从文章路径推导 outputs/<topic>/images/ 目录。
+    article: outputs/<topic>/publish_package/<platform>/article.md
+    → images: outputs/<topic>/images/
+    """
+    article_dir = os.path.dirname(os.path.abspath(article_path))
+    # article: outputs/<topic>/publish_package/<platform>/article.md
+    # <platform> → publish_package → <topic> (up 2), then images/
+    images_dir = os.path.normpath(os.path.join(article_dir, "..", "..", "images"))
+    return images_dir
+
+
+def append_brand_assets(text, article_path, script_path):
+    """在文章末尾品牌信息块后附加 logo + 二维码。
+
+    1. 从 configs/brand_assets/ 拷贝 logo 和二维码到 outputs/<topic>/images/
+    2. 在文末 --- **戴恩医疗科技...** 段后插入图片引用
+    3. 如果文章没有品牌信息块，在文末自动追加品牌块 + 图片
+
+    返回 (modified_text, report_lines)。
+    """
+    workspace = resolve_workspace_root(script_path)
+    brand_src_dir = os.path.join(workspace, "configs", "brand_assets")
+    images_dir = resolve_output_images_dir(article_path)
+
+    if not os.path.isdir(brand_src_dir):
+        return text, ["  [brand_assets] 跳过 — configs/brand_assets/ 目录不存在"]
+
+    os.makedirs(images_dir, exist_ok=True)
+
+    report = []
+    copied_tags = []
+
+    for src_name, dst_name, label in BRAND_ASSETS_MAP:
+        src_path = os.path.join(brand_src_dir, src_name)
+        dst_path = os.path.join(images_dir, dst_name)
+        if os.path.isfile(src_path):
+            shutil.copy2(src_path, dst_path)
+            # 文章中用 ../images/ 相对路径
+            tag = f"![{label}](../images/{dst_name})"
+            copied_tags.append(tag)
+            report.append(f"  [brand_assets] {label} → {dst_name}")
+        else:
+            report.append(f"  [brand_assets] {label} — 文件缺失: {src_name}")
+
+    if not copied_tags:
+        return text, report
+
+    # 查找品牌信息块，在它后面插入图片
+    match = _BRAND_BLOCK_RE.search(text)
+    if match:
+        insert_pos = match.end()
+        before = text[:insert_pos]
+        after = text[insert_pos:]
+        # 在品牌块和配图建议之间插入实际图片
+        image_block = "\n\n" + "\n\n".join(copied_tags)
+        text = before + image_block + after
+        report.append("  [brand_assets] 图片已附加到品牌信息块后")
+    else:
+        # 没有品牌块 → 在文末追加
+        text = text.rstrip() + "\n\n" + "\n\n".join(copied_tags) + "\n"
+        report.append("  [brand_assets] 文末无品牌块，已附加到末尾")
+
+    return text, report
+
+
 def main():
     parser = argparse.ArgumentParser(description="图文编排执行层 — 将图片内联到平台文章")
     parser.add_argument("--pipeline", required=True, help="pipeline_result.json 路径")
@@ -265,8 +355,18 @@ def main():
     for line in report:
         print(line)
 
+    # 自动附加品牌 logo + 二维码
+    final_text, brand_report = append_brand_assets(new_text, args.article, __file__)
+    if brand_report:
+        print("\n品牌素材:")
+        for line in brand_report:
+            print(line)
+        # 写回最终版本
+        with open(args.article, "w", encoding="utf-8") as f:
+            f.write(final_text)
+
     # 验证
-    tag_count = len(_IMG_TAG_RE.findall(new_text))
+    tag_count = len(_IMG_TAG_RE.findall(final_text))
     print(f"\n验证: 文章包含 {tag_count} 个 ![...](...) 标记")
 
 

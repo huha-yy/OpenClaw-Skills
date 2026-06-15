@@ -384,9 +384,16 @@ def insert_product_images(text, article_path, script_path):
     lines = text.split("\n")
     for idx, line in enumerate(lines):
         if re.match(r"^[-*_]{3,}\s*$", line.strip()):
-            brand_divider_idx = idx
-            break
+            # 检查后面几行是否含品牌标识，确认是品牌块分割线
+            for next_idx in range(idx + 1, min(idx + 10, len(lines))):
+                look = lines[next_idx]
+                if "戴恩医疗科技" in look or "品牌logo" in look:
+                    brand_divider_idx = idx
+                    break
+            if brand_divider_idx is not None:
+                break
 
+    # 如果没找到明确的品牌块，使用全文
     body_end = brand_divider_idx if brand_divider_idx is not None else len(lines)
 
     inserted_count = 0

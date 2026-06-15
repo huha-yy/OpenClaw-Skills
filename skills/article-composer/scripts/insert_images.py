@@ -325,26 +325,22 @@ def append_brand_assets(text, article_path, script_path):
         else:
             report.append(f"  [brand_assets] {label} — 文件缺失: {src_name}")
 
-    # 2) Logo — 插入到开头（标题/封面之后、正文之前）
+    # 2) Logo — 插入到开头（标题正下方，封面图之前）
     if logo_tag:
         lines = text.split("\n")
         insert_at = 0
-        # 找第一个 # 标题之后的位置
         for idx, line in enumerate(lines):
             if re.match(r"^#{1,3}\s+", line):
                 insert_at = idx + 1
                 break
-        # 跳过标题后的封面图和空行
-        while insert_at < len(lines):
-            stripped = lines[insert_at].strip()
-            if stripped == "" or _IMG_TAG_RE.match(stripped):
-                insert_at += 1
-            else:
-                break
+        # 跳过标题行后的连续空行
+        while insert_at < len(lines) and lines[insert_at].strip() == "":
+            insert_at += 1
+        # 在空行后的第一个内容（封面图或正文）之前插入 logo
         lines.insert(insert_at, "")
         lines.insert(insert_at, logo_tag)
         text = "\n".join(lines)
-        report.append("  [brand_assets] logo → 文章开头")
+        report.append("  [brand_assets] logo → 文章开头（封面图之前）")
 
     # 3) 二维码 — 插入到文末品牌信息块后
     if qr_tag:

@@ -6,10 +6,11 @@ ComfyUI API 客户端 —— 提交文生图任务并下载结果。
   python comfyui_client.py --positive "prompt" --negative "neg" --width 768 --height 512 --output ./images/
 
 依赖:
-  pip install requests
+  pip install requests python-dotenv
 """
 
 import json
+import os
 import sys
 import time
 import uuid
@@ -17,8 +18,10 @@ import argparse
 import urllib.request
 import urllib.parse
 
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), ".env"))
 
-COMFYUI_URL = "http://127.0.0.1:8188"
+COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://127.0.0.1:8188")
 TIMEOUT = 300  # 最长等待秒数
 CHECK_INTERVAL = 2  # 轮询间隔秒数
 

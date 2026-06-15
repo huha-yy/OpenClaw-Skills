@@ -177,18 +177,20 @@ def _make_divider_block():
     }
 
 
-def _make_image_block(file_path, alt_text):
+def _make_image_block(file_path, alt_text, width=800):
     """构建 image 块 (block_type=27)，用 _file_path 存本地路径待上传阶段解析。
 
     上传阶段 resolve_and_upload_images() 会扫描 _file_path，
     上传图片后将 _file_path 替换为飞书 image_key token。
+
+    默认宽度 800px（飞书文档内合适尺寸）。封面图宽度保持 0（原始全宽）。
     """
     return {
         "block_type": 27,
         "image": {
             "_file_path": file_path,
             "alt": alt_text,
-            "width": 0,
+            "width": width,
             "height": 0,
         },
     }
@@ -297,7 +299,11 @@ def md_to_blocks(text):
         if image_match:
             alt_text = image_match.group(1).strip()
             img_path = image_match.group(2).strip()
-            blocks.append(_make_image_block(img_path, alt_text))
+            # 封面图保持原始全宽
+            if "封面" in alt_text:
+                blocks.append(_make_image_block(img_path, alt_text, width=0))
+            else:
+                blocks.append(_make_image_block(img_path, alt_text))
             i += 1
             continue
 

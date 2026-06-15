@@ -240,6 +240,29 @@ BRAND_ASSETS_MAP = [
     ("image16-戴恩公司微信.jpg", "brand_qrcode.jpg", "官方二维码"),
 ]
 
+# 产品实物照映射: (brand_assets源文件, 输出目标名, 产品名)
+PRODUCT_ASSETS_MAP = [
+    ("image12-戴恩·智能便携助浴.jpg", "product_portable_bath.jpg", "智能便携助浴"),
+    ("image13-戴恩·智能护理机器人.jpg", "product_care_robot.jpg", "智能护理机器人"),
+    ("image14-智能助浴陪护一体床.jpg", "product_care_bed.jpg", "智能助浴陪护一体床"),
+    ("image15-戴恩·养老服务系统.jpg", "product_service_system.jpg", "养老服务系统"),
+]
+
+PRODUCT_KEYWORDS = {
+    "智能便携助浴": [
+        "智能便携助浴", "DEN FlexBath 360", "FlexBath", "便携洗浴",
+        "回吸式卧床助浴", "便携助浴", "便携式洗浴", "智能便携洗浴机",
+    ],
+    "智能护理机器人": [
+        "智能护理机器人", "护理机器人", "智能排泄物护理机器人",
+        "戴恩尼诺护理机器人", "大小便护理机器人",
+    ],
+    "智能助浴陪护一体床": [
+        "智能助浴陪护一体床", "助浴陪护一体床", "智能护理床",
+    ],
+    "养老服务系统": ["养老服务系统"],
+}
+
 # 品牌信息块的识别特征（文末 --- 后的公司介绍段）
 _BRAND_BLOCK_RE = re.compile(
     r"(\*{2}戴恩医疗科技.*?\*{2}[\s\S]*?configs/brand_assets/?)",
@@ -318,6 +341,142 @@ def append_brand_assets(text, article_path, script_path):
     return text, report
 
 
+def insert_product_images(text, article_path, script_path):
+    """扫描文章正文段落，在首次提到产品的段落后面插入产品实物照。
+
+    1. 从 configs/brand_assets/ 拷贝产品图到 outputs/<topic>/images/
+    2. 扫描每个段落，检测首次出现产品关键词的位置
+    3. 在该段落后插入 ![产品名](../images/product_xxx.jpg)
+    4. 幂等：已有同名产品图的段落跳过
+    5. 仅处理正文段落（--- 分割线之前的品牌信息块不处理）
+
+    返回 (modified_text, report_lines)。
+    """
+    workspace = resolve_workspace_root(script_path)
+    brand_src_dir = os.path.join(workspace, "configs", "brand_assets")
+    images_dir = resolve_output_images_dir(article_path)
+
+    if not os.path.isdir(brand_src_dir):
+        return text, ["  [product_assets] 跳过 — configs/brand_assets/ 目录不存在"]
+
+    os.makedirs(images_dir, exist_ok=True)
+
+    # 拷贝产品图并构建关键词→tag映射
+    product_tags = {}  # product_name → markdown tag
+    report = []
+
+    for src_name, dst_name, product_name in PRODUCT_ASSETS_MAP:
+        src_path = os.path.join(brand_src_dir, src_name)
+        dst_path = os.path.join(images_dir, dst_name)
+        if os.path.isfile(src_path):
+            shutil.copy2(src_path, dst_path)
+            tag = f"![{product_name}](../images/{dst_name})"
+            product_tags[product_name] = tag
+            report.append(f"  [product_assets] {product_name} → {dst_name}")
+        else:
+            report.append(f"  [product_assets] {product_name} — 文件缺失: {src_name}")
+
+    if not product_tags:
+        return text, report
+
+    # 找到品牌信息块分割线位置（--- 后的部分不处理）
+    brand_divider_idx = None
+    lines = text.split("\n")
+    for idx, line in enumerate(lines):
+        if re.match(r"^[-*_]{3,}\s*$", line.strip()):
+            brand_divider_idx = idx
+            break
+
+    body_end = brand_divider_idx if brand_divider_idx is not None else len(lines)
+
+    inserted_count = 0
+    used_products = set()
+
+    # 从后往前扫描段落，避免插入后索引变化
+    i = body_end - 1
+    while i >= 0:
+        line = lines[i]
+
+        # 跳过空行和图片标记
+        if not line.strip() or _IMG_TAG_RE.match(line):
+            i -= 1
+            continue
+
+        # 跳过 heading 行
+        if _HEADING_RE.match(line) or _XHS_HEADING_RE.match(line):
+            i -= 1
+            continue
+
+        # 收集连续的非空段落行（向前找段落起始）
+        para_end = i
+        para_start = i
+        while para_start > 0 and lines[para_start - 1].strip():
+            prev = lines[para_start - 1].strip()
+            if (_HEADING_RE.match(prev) or _XHS_HEADING_RE.match(prev) or
+                _IMG_TAG_RE.match(prev)):
+                break
+            para_start -= 1
+
+        para_lines = lines[para_start:para_end + 1]
+        para_text = "\n".join(para_lines)
+
+        # 检查该段落是否已有产品图
+        has_product_img = any(
+            f"../images/{dst_name}" in para_text
+            for _, dst_name, _ in PRODUCT_ASSETS_MAP
+        )
+        # 也检查段落后面紧跟着的行
+        next_line = ""
+        if para_end + 1 < len(lines):
+            next_line = lines[para_end + 1]
+        has_product_img = has_product_img or any(
+            f"../images/{dst_name}" in next_line
+            for _, dst_name, _ in PRODUCT_ASSETS_MAP
+        )
+
+        if has_product_img:
+            i = para_start - 1
+            continue
+
+        # 扫描段落关键词，找首次命中的产品
+        for product_name, keywords in PRODUCT_KEYWORDS.items():
+            if product_name in used_products:
+                continue
+            tag = product_tags.get(product_name)
+            if not tag:
+                continue
+
+            matched = False
+            for kw in keywords:
+                if kw in para_text:
+                    matched = True
+                    break
+
+            if matched:
+                # 在段落后面插入产品图
+                insert_at = para_end + 1
+                # 跳过段落后的空行
+                while insert_at < len(lines) and lines[insert_at].strip() == "":
+                    insert_at += 1
+                lines.insert(insert_at, "")
+                lines.insert(insert_at, tag)
+                used_products.add(product_name)
+                inserted_count += 1
+                report.append(f"  [product_assets] {product_name} 插入到段落后（关键词: {kw}）")
+                break  # 一个段落只插一个产品
+
+        i = para_start - 1
+
+    text = "\n".join(lines)
+    # 清理可能产生的多余空行
+    text = re.sub(r"\n{4,}", "\n\n\n", text)
+
+    if inserted_count == 0:
+        report.append("  [product_assets] 未匹配到产品关键词，未插入产品图")
+
+    return text, report
+
+
 def main():
     parser = argparse.ArgumentParser(description="图文编排执行层 — 将图片内联到平台文章")
     parser.add_argument("--pipeline", required=True, help="pipeline_result.json 路径")
@@ -354,6 +513,14 @@ def main():
     print(f"插入结果: {new_text.count('![')} 个图片标记")
     for line in report:
         print(line)
+
+    # 自动插入产品实物照（按文本关键词匹配）
+    product_text, product_report = insert_product_images(new_text, args.article, __file__)
+    if product_report:
+        print("\n产品配图:")
+        for line in product_report:
+            print(line)
+        new_text = product_text
 
     # 自动附加品牌 logo + 二维码
     final_text, brand_report = append_brand_assets(new_text, args.article, __file__)

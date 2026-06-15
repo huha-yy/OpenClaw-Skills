@@ -154,7 +154,7 @@ def main():
         # 策略一：Pexels
         pexels_result = run_pexels(
             query=img["pexels_query"],
-            platform=platform,
+            platform=img.get("platform", platform),
             orientation=img.get("pexels_orientation", "landscape"),
             n=5,
             min_score=threshold,
